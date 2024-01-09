@@ -1,14 +1,14 @@
 
 #include <SFML/Graphics.hpp>
 #include <complex>
+#include <iostream>
 #include <oneapi/tbb.h>
 #include <string>
 
 using Complex = std::complex<double>;
 
-template <typename T>
-T mandelbrot(const Complex& c) {
-  T i{};
+int mandelbrot(const Complex& c) {
+  int i{};
   auto z{c};
   for (; i != 256 && norm(z) < 4.; ++i) {
     z = z * z + c;
@@ -21,7 +21,12 @@ auto to_color(int k) {
   return k < 256 ? sf::Color{static_cast<sf::Uint8>(10 * k), 0, 0} : sf::Color::Black;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
+  if (argc == 1) {
+    std::cout << "Error: no grainsize specified" << '\n';
+    std::cout << "Usage: " << argv[0] << " grainsize_x grainsize_y" << '\n';
+    return 1;
+  }
   const uint16_t width{800}, height{800};
 
   const Complex top_left{-2.2, 1.5};
@@ -43,7 +48,7 @@ int main(int argc, char **argv) {
       [&](oneapi::tbb::blocked_range2d<size_t> r) {
         for (auto row_it{r.rows().begin()}; row_it != r.rows().end(); ++row_it) {
           for (auto col_it{r.cols().begin()}; col_it != r.cols().end(); ++col_it) {
-            auto k = mandelbrot<int>(top_left + Complex{d_x * col_it, d_y * row_it});
+            auto k = mandelbrot(top_left + Complex{d_x * col_it, d_y * row_it});
             image.setPixel(col_it, row_it, to_color(k));
           }
         }

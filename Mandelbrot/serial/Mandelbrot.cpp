@@ -5,9 +5,8 @@
 
 using Complex = std::complex<double>;
 
-template <typename T>
-T mandelbrot(const Complex& c) {
-  T i{};
+int mandelbrot(const Complex& c) {
+  int i{};
   auto z{c};
   for (; i != 256 && norm(z) < 4.; ++i) {
     z = z * z + c;
@@ -35,7 +34,7 @@ int main() {
 
   for (int row{}; row != height; ++row) {
     for (int column{}; column != width; ++column) {
-      auto k = mandelbrot<int>(top_left + Complex{d_x * column, d_y * row});
+      auto k = mandelbrot(top_left + Complex{d_x * column, d_y * row});
       image.setPixel(column, row, to_color(k));
     }
   }
