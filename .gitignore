@@ -1,6 +1,10 @@
 # executables
 *.out
 
+# data files
+*.dat
+*.csv
+
 # valgrind output
 *vgcore*
 
