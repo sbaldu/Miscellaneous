@@ -16,3 +16,4 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG
 
 add_subdirectory(serial)
 add_subdirectory(tbb)
+add_subdirectory(cuda)
