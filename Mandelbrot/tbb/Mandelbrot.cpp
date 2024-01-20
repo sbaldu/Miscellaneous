@@ -1,11 +1,20 @@
 
 #include <SFML/Graphics.hpp>
+#include <chrono>
 #include <complex>
+#include <cstdint>
 #include <iostream>
 #include <oneapi/tbb.h>
 #include <string>
 
+template <typename T>
+struct ImageSize_t {
+  T width;
+  T height;
+};
+
 using Complex = std::complex<double>;
+using ImageSize = ImageSize_t<uint16_t>;
 
 int mandelbrot(const Complex& c) {
   int i{};
@@ -19,6 +28,28 @@ int mandelbrot(const Complex& c) {
 
 auto to_color(int k) {
   return k < 256 ? sf::Color{static_cast<sf::Uint8>(10 * k), 0, 0} : sf::Color::Black;
+}
+
+template <typename Partitioner>
+void build_image(sf::Image& image,
+                 const ImageSize& size,
+                 const Complex& top_left,
+                 std::size_t grainsize,
+                 const Partitioner& partitioner,
+                 double d_x,
+                 double d_y) {
+  oneapi::tbb::parallel_for(
+      oneapi::tbb::blocked_range2d<size_t>(
+          0, size.height, grainsize, 0, size.width, grainsize),
+      [&](oneapi::tbb::blocked_range2d<size_t> r) {
+        for (auto row_it{r.rows().begin()}; row_it != r.rows().end(); ++row_it) {
+          for (auto col_it{r.cols().begin()}; col_it != r.cols().end(); ++col_it) {
+            auto k = mandelbrot(top_left + Complex{d_x * col_it, d_y * row_it});
+            image.setPixel(col_it, row_it, to_color(k));
+          }
+        }
+      },
+      partitioner);
 }
 
 int main(int argc, char** argv) {
@@ -40,22 +71,21 @@ int main(int argc, char** argv) {
   image.create(width, height);
 
   // read grainsize from command line
-  const std::size_t grainsize_x{std::stoul(argv[1])};
-  const std::size_t grainsize_y{std::stoul(argv[2])};
+  const std::size_t grainsize{std::stoul(argv[1])};
 
-  oneapi::tbb::parallel_for(
-      oneapi::tbb::blocked_range2d<size_t>(0, height, grainsize_y, 0, width, grainsize_x),
-      [&](oneapi::tbb::blocked_range2d<size_t> r) {
-        for (auto row_it{r.rows().begin()}; row_it != r.rows().end(); ++row_it) {
-          for (auto col_it{r.cols().begin()}; col_it != r.cols().end(); ++col_it) {
-            auto k = mandelbrot(top_left + Complex{d_x * col_it, d_y * row_it});
-            image.setPixel(col_it, row_it, to_color(k));
-          }
-        }
-      },
-      oneapi::tbb::simple_partitioner());
+  auto start{std::chrono::high_resolution_clock::now()};
+  build_image(image,
+              {width, height},
+              top_left,
+              grainsize,
+              oneapi::tbb::simple_partitioner{},
+              d_x,
+              d_y);
+  auto finish{std::chrono::high_resolution_clock::now()};
+  std::cout
+      << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count()
+      << '\n';
 
-  const std::string filename{"mandelbrot_" + std::to_string(grainsize_x) + "_" +
-                             std::to_string(grainsize_y) + ".png"};
+  const std::string filename{"mandelbrot_" + std::to_string(grainsize) + ".png"};
   image.saveToFile(filename);
 }
